@@ -1,10 +1,14 @@
 import passport from "passport";
+import "dotenv/config";
 import { Strategy as LocalStrategy } from "passport-local";
+import { Strategy as JWTStrategy, ExtractJwt } from "passport-jwt";
 import { userModel } from "../dao/models/users.model.js";
 import { verifyPassword, hashPassword } from "../utils/password.utils.js";
-//import session from "express-session";
+import { generateToken } from "../utils/jwt.js";
+import GithubStrategy from "passport-github2";
 
 export function initializePassport() {
+  // 🚨 Registro
   passport.use(
     "register",
     new LocalStrategy(
@@ -16,13 +20,13 @@ export function initializePassport() {
       async (req, email, password, done) => {
         try {
           const { first_name, last_name, age } = req.body;
-          if (!first_name || !last_name || !age)
+          if (!email || !password || !first_name || !last_name || !age)
             return done(null, false, { message: "All fields are required" });
 
           const userExists = await userModel.findOne({ email }).lean();
-
           if (userExists)
             return done(null, false, { message: "Email already exists" });
+
           const hashedPassword = await hashPassword(password);
           const user = await userModel.create({
             first_name,
@@ -31,6 +35,7 @@ export function initializePassport() {
             email,
             password: hashedPassword,
           });
+
           done(null, user);
         } catch (error) {
           done(error);
@@ -39,16 +44,16 @@ export function initializePassport() {
     )
   );
 
+  // 🚨 Login
   passport.use(
     "login",
     new LocalStrategy(
-      {
-        usernameField: "email",
-      },
+      { usernameField: "email" },
       async (email, password, done) => {
         try {
           const user = await userModel.findOne({ email });
           if (!user) return done(null, false, { message: "User not found" });
+
           const isPasswordCorrect = await verifyPassword(
             password,
             user.password
@@ -64,21 +69,19 @@ export function initializePassport() {
     )
   );
 
+  // 🚨 Estrategia "current" con JWT
   passport.use(
-    "restore-password",
-    new LocalStrategy(
+    "current",
+    new JWTStrategy(
       {
-        usernameField: "email",
+        secretOrKey: process.env.JWT_SECRET,
+        jwtFromRequest: ExtractJwt.fromExtractors([cookieExtractor]),
       },
-      async (email, password, done) => {
+      async (payload, done) => {
         try {
-          const user = await userModel.findOne({ email }).lean();
+          const user = await userModel.findOne({ email: payload.email }).lean();
           if (!user) return done(null, false, { message: "User not found" });
-          const hashedPassword = await hashPassword(password);
-          await userModel.updateOne(
-            { _id: user._id },
-            { password: hashedPassword }
-          );
+
           return done(null, user);
         } catch (error) {
           return done(error);
@@ -87,12 +90,79 @@ export function initializePassport() {
     )
   );
 
-  passport.serializeUser((user, done) => {
-    done(null, user._id);
-  });
-
+  passport.serializeUser((user, done) => done(null, user._id));
   passport.deserializeUser(async (id, done) => {
-    const user = await userModel.findById(id).lean();
-    done(null, user);
+    try {
+      const user = await userModel.findById(id).lean();
+      return done(null, user);
+    } catch (error) {
+      return done(`Hubo un error: ${error.message}`);
+    }
   });
 }
+
+// 🚨 Función para extraer token de cookies ✅
+function cookieExtractor(req) {
+  return req?.cookies?.token || null;
+}
+
+//���Recuperar contraseña
+passport.use(
+  "restore-password",
+  new LocalStrategy(
+    {
+      usernameField: "email",
+    },
+    async (email, password, done) => {
+      try {
+        const user = await userModel.findOne({ email }).lean();
+        if (!user) return done(null, false, { message: "User not found" });
+        const hashedPassword = await hashPassword(password);
+        await userModel.updateOne(
+          { _id: user._id },
+          { password: hashedPassword }
+        );
+        return done(null, user);
+      } catch (error) {
+        return done(error);
+      }
+    }
+  )
+);
+
+//���Método github
+passport.use(
+  "github",
+  new GithubStrategy(
+    {
+      clientID: process.env.CLIENT_ID,
+      clientSecret: process.env.CLIENT_SECRET,
+      callbackURL: "http://localhost:8080/api/session/githubcallback",
+    },
+
+    async (access_token, refresh_toker, profile, done) => {
+      try {
+        console.log(profile);
+        const email = profile.emails?.[0].value || "Correo no disponible";
+
+        let user = await userModel.findOne({
+          email,
+        });
+
+        if (user) {
+          return done(null, user);
+        }
+
+        const newUser = await userModel.create({
+          first_name: profile.displayName,
+          email,
+          age: profile.age || 0,
+          githubId: profile.id,
+        });
+        return done(null, newUser);
+      } catch (error) {
+        return done(error);
+      }
+    }
+  )
+);

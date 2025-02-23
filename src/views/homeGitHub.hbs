@@ -1,0 +1,19 @@
+<div class="alert alert-dark p-4">
+  <h1>Bienvenido a la aplicacion de ejemplo</h1>
+
+  {{#if user}}
+    Bienvenido
+    {{user.name}}
+    <ul>
+      {{#if user.age}}
+        <li>Edad: {{user.age}}</li>
+      {{/if}}
+      {{#if user.email}}
+        <li>Correo electronico: {{user.email}}</li>
+      {{/if}}
+
+    </ul>
+  {{else}}
+    <a href="/login" class="btn btn-primary">Loguearse</a>
+  {{/if}}
+</div>
