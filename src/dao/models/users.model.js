@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
 
-const userCollection = "users";
+const usersCollection = "users";
 
-const userSchema = new mongoose.Schema({
+const usersSchema = new mongoose.Schema({
   first_name: {
     type: String,
     required: true,
@@ -30,10 +30,15 @@ const userSchema = new mongoose.Schema({
     enum: ["admin", "user"],
     default: "user",
   },
+  cart: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "carts",
+    //default: null, // Un solo ticket por carrito
+  },
 });
 
-//🚨Valida campo email
-userSchema.pre("save", async function (next) {
+//🚨Valida campo email, se reemplazará con DTO´s
+usersSchema.pre("save", async function (next) {
   if (this.email.includes("@") && this.email.includes(".")) {
     return next();
   }
@@ -41,4 +46,4 @@ userSchema.pre("save", async function (next) {
   next(new Error("Email is not valid"));
 });
 
-export const userModel = mongoose.model(userCollection, userSchema);
+export const usersModel = mongoose.model(usersCollection, usersSchema);

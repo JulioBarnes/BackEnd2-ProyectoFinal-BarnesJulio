@@ -13,20 +13,3 @@ export function verifyToken(token) {
     throw new Error(`Token invalid ${error}`);
   }
 }
-
-//Middleware para verificar el token en las peticiones por array del header
-/*
-  export function authenticate(req, res, next) {
-    const token = req.headers.authorization.split(" ")[1]; //accede al segundo elemento del array
-    req.headers["authorization"].split(" ")[1];
-  
-    try {
-      const decoded = verifyToken(token);
-      req.user = decoded;
-      next();
-    } catch (error) {
-      console.log(error);
-      res.status(401).json({ message: "Token invalid" });
-    }
-  }
-  */

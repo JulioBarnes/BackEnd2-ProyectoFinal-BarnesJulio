@@ -2,9 +2,8 @@ import passport from "passport";
 import "dotenv/config";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Strategy as JWTStrategy, ExtractJwt } from "passport-jwt";
-import { userModel } from "../dao/models/users.model.js";
+import { usersModel } from "../dao/models/users.model.js";
 import { verifyPassword, hashPassword } from "../utils/password.utils.js";
-import { generateToken } from "../utils/jwt.js";
 import GithubStrategy from "passport-github2";
 
 export function initializePassport() {
@@ -20,15 +19,13 @@ export function initializePassport() {
       async (req, email, password, done) => {
         try {
           const { first_name, last_name, age } = req.body;
-          if (!email || !password || !first_name || !last_name || !age)
-            return done(null, false, { message: "All fields are required" });
 
-          const userExists = await userModel.findOne({ email }).lean();
+          const userExists = await usersModel.findOne({ email }).lean();
           if (userExists)
             return done(null, false, { message: "Email already exists" });
 
           const hashedPassword = await hashPassword(password);
-          const user = await userModel.create({
+          const user = await usersModel.create({
             first_name,
             last_name,
             age,
@@ -51,7 +48,7 @@ export function initializePassport() {
       { usernameField: "email" },
       async (email, password, done) => {
         try {
-          const user = await userModel.findOne({ email });
+          const user = await usersModel.findOne({ email });
           if (!user) return done(null, false, { message: "User not found" });
 
           const isPasswordCorrect = await verifyPassword(
@@ -79,7 +76,9 @@ export function initializePassport() {
       },
       async (payload, done) => {
         try {
-          const user = await userModel.findOne({ email: payload.email }).lean();
+          const user = await usersModel
+            .findOne({ email: payload.email })
+            .lean();
           if (!user) return done(null, false, { message: "User not found" });
 
           return done(null, user);
@@ -93,7 +92,7 @@ export function initializePassport() {
   passport.serializeUser((user, done) => done(null, user._id));
   passport.deserializeUser(async (id, done) => {
     try {
-      const user = await userModel.findById(id).lean();
+      const user = await usersModel.findById(id).lean();
       return done(null, user);
     } catch (error) {
       return done(`Hubo un error: ${error.message}`);
@@ -115,10 +114,10 @@ passport.use(
     },
     async (email, password, done) => {
       try {
-        const user = await userModel.findOne({ email }).lean();
+        const user = await usersModel.findOne({ email }).lean();
         if (!user) return done(null, false, { message: "User not found" });
         const hashedPassword = await hashPassword(password);
-        await userModel.updateOne(
+        await usersModel.updateOne(
           { _id: user._id },
           { password: hashedPassword }
         );
@@ -140,12 +139,12 @@ passport.use(
       callbackURL: "http://localhost:8080/api/session/githubcallback",
     },
 
-    async (access_token, refresh_toker, profile, done) => {
+    async (access_token, refresh_token, profile, done) => {
       try {
         console.log(profile);
         const email = profile.emails?.[0].value || "Correo no disponible";
 
-        let user = await userModel.findOne({
+        let user = await usersModel.findOne({
           email,
         });
 
@@ -153,7 +152,7 @@ passport.use(
           return done(null, user);
         }
 
-        const newUser = await userModel.create({
+        const newUser = await usersModel.create({
           first_name: profile.displayName,
           email,
           age: profile.age || 0,

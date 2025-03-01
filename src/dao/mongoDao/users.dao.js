@@ -1,27 +1,27 @@
-import { userModel } from "../models/users.model.js";
+import { usersModel } from "../models/users.model.js";
 
-class UserDao {
+class UsersDao {
   async getAll() {
-    return await userModel.find();
+    return await usersModel.find();
   }
 
   async getById(id) {
-    return await userModel.findById(id);
+    return await usersModel.findById(id);
   }
 
   async create(data) {
-    return await userModel.create(data);
+    return await usersModel.create(data);
   }
 
   async update(id, data) {
-    return await userModel.findByIdAndUpdate(id, data, {
+    return await usersModel.findByIdAndUpdate(id, data, {
       new: true,
     });
   }
 
-  async deleteUser(id) {
-    return await userModel.findByIdAndDelete(id);
+  async delete(id) {
+    return await usersModel.findByIdAndDelete(id);
   }
 }
 
-export const userDao = new UserDao();
+export const usersDao = new UsersDao();
